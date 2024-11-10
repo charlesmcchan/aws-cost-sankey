@@ -5,7 +5,9 @@ tools:
 
 build:
 	@mkdir -p build
-	@GOOS=linux GOARCH=arm64 go build -o build/aws-cost-sankey ./cmd/aws-cost-sankey
+	go mod tidy
+	go build -o build/aws-cost-sankey ./cmd/aws-cost-sankey
+	@chmod a+x build/aws-cost-sankey
 
 clean:
 	@rm -rf build
