@@ -77,7 +77,8 @@ func setEnvVar(name string, key string, secret string, token string) {
 func fetchData(accountName string, startDate string, endDate string, threshold float64) {
 	log.Printf("Fetching data for %s\n", accountName)
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-west-2"))
+	// Region doesn't matter for cost explorer since its a global service
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
@@ -93,7 +94,7 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 		Metrics:     []string{"AmortizedCost"},
 		GroupBy: []types.GroupDefinition{
 			{Type: types.GroupDefinitionTypeTag, Key: aws.String("environment")},
-			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("SERVICE")},
+			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("USAGE_TYPE")},
 		},
 	}
 
@@ -110,11 +111,11 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 		environment := group.Keys[0]
 		service := group.Keys[1]
 
-		// Trim "environment$" prefix
+		// Prettify cluster name
 		if len(environment) > len("environment$") {
 			environment = environment[len("environment$"):]
 		} else {
-			environment = "unknown"
+			environment = fmt.Sprintf("%s-unknown", accountName)
 		}
 
 		// Parse cost, ignore those below threshold
