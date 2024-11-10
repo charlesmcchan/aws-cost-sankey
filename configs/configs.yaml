@@ -1,0 +1,12 @@
+accounts:
+  - name: account1
+    key: "key1"
+    secret: "secret1"
+    token: "token1"
+  - name: account2
+    key: "key2"
+    secret: "secret2"
+    token: "token2"
+startDate: "2024-10-01"   # YYYY-MM-DD
+endDate: "2024-10-31"     # YYYY-MM-DD
+threshold: 50             # Threshold for the cost to be considered in the sankey diagram
