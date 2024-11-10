@@ -122,45 +122,48 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 }
 
 func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutput, threshold float64) {
-	for _, group := range result.ResultsByTime[0].Groups {
-		environment := group.Keys[0]
-		service := group.Keys[1]
+	for _, resultByTime := range result.ResultsByTime {
+		log.Printf("Processing data for %s from %s to %s\n", accountName, *resultByTime.TimePeriod.Start, *resultByTime.TimePeriod.End)
+		for _, group := range resultByTime.Groups {
+			environment := group.Keys[0]
+			service := group.Keys[1]
 
-		// Prettify cluster name
-		if len(environment) > len("environment$") {
-			environment = environment[len("environment$"):]
-		} else {
-			environment = fmt.Sprintf("%s-unknown", accountName)
-		}
+			// Prettify cluster name
+			if len(environment) > len("environment$") {
+				environment = environment[len("environment$"):]
+			} else {
+				environment = fmt.Sprintf("%s-unknown", accountName)
+			}
 
-		// Parse cost, ignore those below threshold
-		amount := group.Metrics["AmortizedCost"].Amount
-		amountFloat64, err := strconv.ParseFloat(*amount, 64)
-		if err != nil {
-			log.Fatalf("failed to parse amount: %v", err)
-		}
+			// Parse cost, ignore those below threshold
+			amount := group.Metrics["AmortizedCost"].Amount
+			amountFloat64, err := strconv.ParseFloat(*amount, 64)
+			if err != nil {
+				log.Fatalf("failed to parse amount: %v", err)
+			}
 
-		if amountFloat64 < threshold {
-			continue
-		}
+			if amountFloat64 < threshold {
+				continue
+			}
 
-		// Aggregate costs by account
-		if _, ok := results["all"]; !ok {
-			results["all"] = make(map[string]float64)
-		}
-		results["all"][accountName] += amountFloat64
+			// Aggregate costs by account
+			if _, ok := results["all"]; !ok {
+				results["all"] = make(map[string]float64)
+			}
+			results["all"][accountName] += amountFloat64
 
-		// Aggregate costs by environment
-		if _, ok := results[accountName]; !ok {
-			results[accountName] = make(map[string]float64)
-		}
-		results[accountName][environment] += amountFloat64
+			// Aggregate costs by environment
+			if _, ok := results[accountName]; !ok {
+				results[accountName] = make(map[string]float64)
+			}
+			results[accountName][environment] += amountFloat64
 
-		// Aggregate costs by service within environment
-		if _, ok := results[environment]; !ok {
-			results[environment] = make(map[string]float64)
+			// Aggregate costs by service within environment
+			if _, ok := results[environment]; !ok {
+				results[environment] = make(map[string]float64)
+			}
+			results[environment][service] += amountFloat64
 		}
-		results[environment][service] += amountFloat64
 	}
 }
 
