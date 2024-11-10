@@ -9,6 +9,9 @@ build:
 	go build -o build/aws-cost-sankey ./cmd/aws-cost-sankey
 	@chmod a+x build/aws-cost-sankey
 
+run:
+	./build/aws-cost-sankey
+
 clean:
 	@rm -rf build
 

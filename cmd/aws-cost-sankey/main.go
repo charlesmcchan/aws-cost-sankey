@@ -51,14 +51,14 @@ func main() {
 	}
 
 	for _, account := range config.Accounts {
-		setEnvVar(account.Key, account.Secret, account.Token)
+		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
 		fetchData(account.Name, config.StartDate, config.EndDate, config.Threshold)
 	}
 	outputResults(*outputFile)
 }
 
-func setEnvVar(key string, secret string, token string) {
-	log.Printf("Setting environment variables\n")
+func setEnvVar(name string, key string, secret string, token string) {
+	log.Printf("Setting environment variables for %s\n", name)
 
 	err := os.Setenv("AWS_ACCESS_KEY_ID", key)
 	if err != nil {
@@ -107,8 +107,8 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 
 func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutput, threshold float64) {
 	for _, group := range result.ResultsByTime[0].Groups {
-		service := group.Keys[0]
-		environment := group.Keys[1]
+		environment := group.Keys[0]
+		service := group.Keys[1]
 
 		// Trim "environment$" prefix
 		if len(environment) > len("environment$") {
@@ -149,7 +149,7 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 }
 
 func outputResults(outputFile string) {
-	f, err := os.OpenFile(outputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("failed to open output file: %v", err)
 	}
