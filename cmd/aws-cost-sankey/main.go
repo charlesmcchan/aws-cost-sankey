@@ -24,6 +24,8 @@ type Config struct {
 	StartDate string    `yaml:"startDate"`
 	EndDate   string    `yaml:"endDate"`
 	Threshold float64   `yaml:"threshold"`
+	Height    string    `yaml:"height"`
+	Width     string    `yaml:"width"`
 }
 
 type Account struct {
@@ -33,6 +35,7 @@ type Account struct {
 	Token  string `yaml:"token"`
 }
 
+var globalConfig Config
 var results = make(map[string]map[string]float64)
 
 func main() {
@@ -45,19 +48,18 @@ func main() {
 	flag.Parse()
 
 	// Load config from file
-	var config Config
 	data, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	err = yaml.Unmarshal(data, &config)
+	err = yaml.Unmarshal(data, &globalConfig)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
 
-	for _, account := range config.Accounts {
+	for _, account := range globalConfig.Accounts {
 		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
-		fetchData(account.Name, config.StartDate, config.EndDate, config.Threshold)
+		fetchData(account.Name)
 	}
 
 	// Generate output to file or text
@@ -89,7 +91,7 @@ func setEnvVar(name string, key string, secret string, token string) {
 	}
 }
 
-func fetchData(accountName string, startDate string, endDate string, threshold float64) {
+func fetchData(accountName string) {
 	log.Printf("Fetching data for %s\n", accountName)
 
 	// Region doesn't matter for cost explorer since its a global service
@@ -102,8 +104,8 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 
 	input := &costexplorer.GetCostAndUsageInput{
 		TimePeriod: &types.DateInterval{
-			Start: aws.String(startDate),
-			End:   aws.String(endDate),
+			Start: aws.String(globalConfig.StartDate),
+			End:   aws.String(globalConfig.EndDate),
 		},
 		Granularity: types.GranularityMonthly,
 		Metrics:     []string{"AmortizedCost"},
@@ -118,12 +120,15 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 		log.Fatalf("failed to get cost data: %v", err)
 	}
 
-	prepareResults(accountName, result, threshold)
+	prepareResults(accountName, result, globalConfig.Threshold)
 }
 
 func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutput, threshold float64) {
 	for _, resultByTime := range result.ResultsByTime {
 		log.Printf("Processing data for %s from %s to %s\n", accountName, *resultByTime.TimePeriod.Start, *resultByTime.TimePeriod.End)
+
+		results = make(map[string]map[string]float64)
+
 		for _, group := range resultByTime.Groups {
 			environment := group.Keys[0]
 			service := group.Keys[1]
@@ -210,12 +215,14 @@ func generateChart(outputFile string) {
 			Title: "AWS Cost Analysis",
 		}),
 		charts.WithInitializationOpts(opts.Initialization{
-			Width:  "1200px",
-			Height: "1600px",
+			Width:  globalConfig.Width,
+			Height: globalConfig.Height,
 			Theme:  "westeros",
 		}),
 	)
-	sankey.AddSeries("all", sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
+
+	seriesName := fmt.Sprintf("%s-%s", globalConfig.StartDate, globalConfig.EndDate)
+	sankey.AddSeries(seriesName, sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
 
 	page := components.NewPage()
 	page.AddCharts(sankey)
