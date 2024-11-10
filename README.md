@@ -10,6 +10,7 @@ and then visualizing it in an easy-to-understand format.
 - **Data Aggregation**: Aggregate cost data by account, `environment` tag, and service type.
 - **Cost Filtering**: Filter out links with aggregated costs lower than a specified threshold.
 - **Sankey Chart Generation**: Generate a Sankey chart to visualize the cost data.
+- **Developer mode**: Show detailed usage type instead of service
 
 ## Prerequisites
 - **Install asdf tool**

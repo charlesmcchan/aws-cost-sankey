@@ -44,7 +44,8 @@ func main() {
 	// Parse command line arguments
 	configFile := flag.String("c", "configs/configs.yaml", "path to the config file")
 	outputFile := flag.String("o", "output", "name of output file")
-	mode := flag.String("m", "chart", "output mode: text or chart")
+	format := flag.String("f", "chart", "output mode: text or chart")
+	devMode := flag.Bool("d", false, "enable developer mode")
 	flag.Parse()
 
 	// Load config from file
@@ -59,16 +60,16 @@ func main() {
 
 	for _, account := range globalConfig.Accounts {
 		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
-		fetchData(account.Name)
+		fetchData(account.Name, *devMode)
 	}
 
 	// Generate output to file or text
 	var filename string
-	if *mode == "text" {
+	if *format == "text" {
 		filename = fmt.Sprintf("%s.txt", *outputFile)
 		generateText(filename)
 	}
-	if *mode == "chart" {
+	if *format == "chart" {
 		filename = fmt.Sprintf("%s.html", *outputFile)
 		generateChart(filename)
 	}
@@ -91,7 +92,7 @@ func setEnvVar(name string, key string, secret string, token string) {
 	}
 }
 
-func fetchData(accountName string) {
+func fetchData(accountName string, devMode bool) {
 	log.Printf("Fetching data for %s\n", accountName)
 
 	// Region doesn't matter for cost explorer since its a global service
@@ -102,6 +103,19 @@ func fetchData(accountName string) {
 
 	svc := costexplorer.NewFromConfig(cfg)
 
+	var groupBy []types.GroupDefinition
+	if devMode {
+		groupBy = []types.GroupDefinition{
+			{Type: types.GroupDefinitionTypeTag, Key: aws.String("environment")},
+			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("USAGE_TYPE")},
+		}
+	} else {
+		groupBy = []types.GroupDefinition{
+			{Type: types.GroupDefinitionTypeTag, Key: aws.String("environment")},
+			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("SERVICE")},
+		}
+	}
+
 	input := &costexplorer.GetCostAndUsageInput{
 		TimePeriod: &types.DateInterval{
 			Start: aws.String(globalConfig.StartDate),
@@ -109,10 +123,7 @@ func fetchData(accountName string) {
 		},
 		Granularity: types.GranularityMonthly,
 		Metrics:     []string{"AmortizedCost"},
-		GroupBy: []types.GroupDefinition{
-			{Type: types.GroupDefinitionTypeTag, Key: aws.String("environment")},
-			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("SERVICE")},
-		},
+		GroupBy:     groupBy,
 	}
 
 	result, err := svc.GetCostAndUsage(context.TODO(), input)
