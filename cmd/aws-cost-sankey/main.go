@@ -40,7 +40,8 @@ func main() {
 
 	// Parse command line arguments
 	configFile := flag.String("c", "configs/configs.yaml", "path to the config file")
-	// outputFile := flag.String("o", "output.txt", "path to the output file")
+	outputFile := flag.String("o", "output", "name of output file")
+	mode := flag.String("m", "chart", "output mode: text or chart")
 	flag.Parse()
 
 	// Load config from file
@@ -58,8 +59,17 @@ func main() {
 		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
 		fetchData(account.Name, config.StartDate, config.EndDate, config.Threshold)
 	}
-	// outputResults(*outputFile)
-	generateChart()
+
+	// Generate output to file or text
+	var filename string
+	if *mode == "text" {
+		filename = fmt.Sprintf("%s.txt", *outputFile)
+		generateText(filename)
+	}
+	if *mode == "chart" {
+		filename = fmt.Sprintf("%s.html", *outputFile)
+		generateChart(filename)
+	}
 }
 
 func setEnvVar(name string, key string, secret string, token string) {
@@ -99,7 +109,7 @@ func fetchData(accountName string, startDate string, endDate string, threshold f
 		Metrics:     []string{"AmortizedCost"},
 		GroupBy: []types.GroupDefinition{
 			{Type: types.GroupDefinitionTypeTag, Key: aws.String("environment")},
-			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("USAGE_TYPE")},
+			{Type: types.GroupDefinitionTypeDimension, Key: aws.String("SERVICE")},
 		},
 	}
 
@@ -154,8 +164,10 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 	}
 }
 
-func outputResults(outputFile string) {
-	f, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0644)
+func generateText(outputFile string) {
+	log.Printf("Generating text...")
+
+	f, err := os.Create(outputFile)
 	if err != nil {
 		log.Fatalf("failed to open output file: %v", err)
 	}
@@ -171,7 +183,9 @@ func outputResults(outputFile string) {
 	}
 }
 
-func generateChart() {
+func generateChart(outputFile string) {
+	log.Printf("Generating charts...")
+
 	sankeyNode := make([]opts.SankeyNode, 0)
 	sankeyLink := make([]opts.SankeyLink, 0)
 
@@ -192,13 +206,18 @@ func generateChart() {
 		charts.WithTitleOpts(opts.Title{
 			Title: "AWS Cost Analysis",
 		}),
+		charts.WithInitializationOpts(opts.Initialization{
+			Width:  "1200px",
+			Height: "1600px",
+			Theme:  "westeros",
+		}),
 	)
-	sankey.AddSeries("sankey", sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
+	sankey.AddSeries("all", sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
 
 	page := components.NewPage()
 	page.AddCharts(sankey)
 
-	f, err := os.Create("sankey.html")
+	f, err := os.Create(outputFile)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
