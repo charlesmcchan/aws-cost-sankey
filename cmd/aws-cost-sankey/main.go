@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -12,6 +13,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/costexplorer"
 	"github.com/aws/aws-sdk-go-v2/service/costexplorer/types"
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
+	"github.com/go-echarts/go-echarts/v2/opts"
 	"gopkg.in/yaml.v3"
 )
 
@@ -36,7 +40,7 @@ func main() {
 
 	// Parse command line arguments
 	configFile := flag.String("c", "configs/configs.yaml", "path to the config file")
-	outputFile := flag.String("o", "output.txt", "path to the output file")
+	// outputFile := flag.String("o", "output.txt", "path to the output file")
 	flag.Parse()
 
 	// Load config from file
@@ -54,7 +58,8 @@ func main() {
 		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
 		fetchData(account.Name, config.StartDate, config.EndDate, config.Threshold)
 	}
-	outputResults(*outputFile)
+	// outputResults(*outputFile)
+	generateChart()
 }
 
 func setEnvVar(name string, key string, secret string, token string) {
@@ -164,4 +169,47 @@ func outputResults(outputFile string) {
 			}
 		}
 	}
+}
+
+func generateChart() {
+	sankeyNode := make([]opts.SankeyNode, 0)
+	sankeyLink := make([]opts.SankeyLink, 0)
+
+	for parent, children := range results {
+		if !hasNode(parent, sankeyNode) {
+			sankeyNode = append(sankeyNode, opts.SankeyNode{Name: parent})
+		}
+		for child, cost := range children {
+			if !hasNode(child, sankeyNode) {
+				sankeyNode = append(sankeyNode, opts.SankeyNode{Name: child})
+			}
+			sankeyLink = append(sankeyLink, opts.SankeyLink{Source: parent, Target: child, Value: float32(cost)})
+		}
+	}
+
+	sankey := charts.NewSankey()
+	sankey.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: "AWS Cost Analysis",
+		}),
+	)
+	sankey.AddSeries("sankey", sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
+
+	page := components.NewPage()
+	page.AddCharts(sankey)
+
+	f, err := os.Create("sankey.html")
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+	page.Render(io.MultiWriter(f))
+}
+
+func hasNode(name string, nodes []opts.SankeyNode) bool {
+	for _, n := range nodes {
+		if n.Name == name {
+			return true
+		}
+	}
+	return false
 }
