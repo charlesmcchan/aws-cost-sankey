@@ -9,6 +9,6 @@ accounts:
     token: "token2"
 startDate: "2024-10-01"   # YYYY-MM-DD
 endDate: "2024-10-31"     # YYYY-MM-DD
-threshold: 200             # Threshold for the cost to be considered in the sankey diagram
+threshold: 100            # Threshold for a link to be considered in the sankey diagram
 height: "1300px"          # Height of the sankey diagram
-width: "1400px"           # Width of the sankey diagram
+width: "1500px"           # Width of the sankey diagram

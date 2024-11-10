@@ -120,14 +120,12 @@ func fetchData(accountName string) {
 		log.Fatalf("failed to get cost data: %v", err)
 	}
 
-	prepareResults(accountName, result, globalConfig.Threshold)
+	prepareResults(accountName, result)
 }
 
-func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutput, threshold float64) {
+func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutput) {
 	for _, resultByTime := range result.ResultsByTime {
 		log.Printf("Processing data for %s from %s to %s\n", accountName, *resultByTime.TimePeriod.Start, *resultByTime.TimePeriod.End)
-
-		results = make(map[string]map[string]float64)
 
 		for _, group := range resultByTime.Groups {
 			environment := group.Keys[0]
@@ -145,10 +143,6 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 			amountFloat64, err := strconv.ParseFloat(*amount, 64)
 			if err != nil {
 				log.Fatalf("failed to parse amount: %v", err)
-			}
-
-			if amountFloat64 < threshold {
-				continue
 			}
 
 			// Aggregate costs by account
@@ -197,15 +191,25 @@ func generateChart(outputFile string) {
 	sankeyNode := make([]opts.SankeyNode, 0)
 	sankeyLink := make([]opts.SankeyLink, 0)
 
+	// Add all links
 	for parent, children := range results {
-		if !hasNode(parent, sankeyNode) {
-			sankeyNode = append(sankeyNode, opts.SankeyNode{Name: parent})
-		}
 		for child, cost := range children {
-			if !hasNode(child, sankeyNode) {
-				sankeyNode = append(sankeyNode, opts.SankeyNode{Name: child})
+			if cost >= globalConfig.Threshold {
+				sankeyLink = append(sankeyLink, opts.SankeyLink{Source: parent, Target: child, Value: float32(cost)})
 			}
-			sankeyLink = append(sankeyLink, opts.SankeyLink{Source: parent, Target: child, Value: float32(cost)})
+		}
+	}
+
+	// Only add nodes that have links
+	for _, link := range sankeyLink {
+		var nodeName string
+		nodeName = link.Source.(string)
+		if !hasNode(nodeName, sankeyNode) {
+			sankeyNode = append(sankeyNode, opts.SankeyNode{Name: nodeName})
+		}
+		nodeName = link.Target.(string)
+		if !hasNode(nodeName, sankeyNode) {
+			sankeyNode = append(sankeyNode, opts.SankeyNode{Name: nodeName})
 		}
 	}
 
@@ -221,7 +225,7 @@ func generateChart(outputFile string) {
 		}),
 	)
 
-	seriesName := fmt.Sprintf("%s-%s", globalConfig.StartDate, globalConfig.EndDate)
+	seriesName := fmt.Sprintf("%s-%s > $%.0f", globalConfig.StartDate, globalConfig.EndDate, globalConfig.Threshold)
 	sankey.AddSeries(seriesName, sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
 
 	page := components.NewPage()
