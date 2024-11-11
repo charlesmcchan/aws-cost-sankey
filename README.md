@@ -28,10 +28,11 @@ and then visualizing it in an easy-to-understand format.
   make build
   ```
 - **Update the Config File**
-  - Open `configs/configs.yaml`
-  - Fill in AWS credentials, including `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`
-  - Modify the date range as needed
-  - (Optional) Adjust the link display threshold, canvas height, and width
+  - Copy `configs/configs.example.yaml` to `configs/configs.yaml`
+  - Edit `configs/configs.yaml`
+    - Fill in AWS credentials, including `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`
+    - Modify the date range as needed
+    - (Optional) Adjust the link display threshold, canvas height, and width
 - **Run the Code**
   ```bash
   ./build/aws-cost-sankey
