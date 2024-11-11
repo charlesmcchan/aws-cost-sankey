@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"strconv"
 
@@ -149,9 +150,10 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 				environment = fmt.Sprintf("%s-unknown", accountName)
 			}
 
-			// Parse cost, ignore those below threshold
+			// Parse cost, round the fractions, and ignore those below threshold
 			amount := group.Metrics["AmortizedCost"].Amount
-			amountFloat64, err := strconv.ParseFloat(*amount, 64)
+			amountFloat64, err := strconv.ParseFloat(*amount, 32)
+			amountFloat64 = math.Round(amountFloat64)
 			if err != nil {
 				log.Fatalf("failed to parse amount: %v", err)
 			}
@@ -237,7 +239,11 @@ func generateChart(outputFile string) {
 	)
 
 	seriesName := fmt.Sprintf("%s-%s > $%.0f", globalConfig.StartDate, globalConfig.EndDate, globalConfig.Threshold)
-	sankey.AddSeries(seriesName, sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{Show: opts.Bool(true)}))
+	sankey.AddSeries(seriesName, sankeyNode, sankeyLink, charts.WithLabelOpts(opts.Label{
+		Show:      opts.Bool(true),
+		FontSize:  12,
+		Formatter: "{c} {b}",
+	}))
 
 	page := components.NewPage()
 	page.AddCharts(sankey)
