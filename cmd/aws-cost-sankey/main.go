@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -47,6 +48,7 @@ func main() {
 	outputFile := flag.String("o", "output", "name of output file")
 	format := flag.String("f", "chart", "output mode: text or chart")
 	devMode := flag.Bool("d", false, "enable developer mode")
+	inputFile := flag.String("i", "", "input file to read cost data from")
 	flag.Parse()
 
 	// Load config from file
@@ -59,9 +61,15 @@ func main() {
 		log.Fatalf("error: %v", err)
 	}
 
-	for _, account := range globalConfig.Accounts {
-		setEnvVar(account.Name, account.Key, account.Secret, account.Token)
-		fetchData(account.Name, *devMode)
+	// Load results from file if inputFile is provided
+	// Otherwise, fetch data from each account via AWS Cost Explorer API
+	if *inputFile != "" {
+		readData(*inputFile)
+	} else {
+		for _, account := range globalConfig.Accounts {
+			setEnvVar(account.Name, account.Key, account.Secret, account.Token)
+			fetchData(account.Name, *devMode)
+		}
 	}
 
 	// Generate output to file or text
@@ -90,6 +98,40 @@ func setEnvVar(name string, key string, secret string, token string) {
 	err = os.Setenv("AWS_SESSION_TOKEN", token)
 	if err != nil {
 		log.Fatalf("error setting AWS_SESSION_TOKEN: %v", err)
+	}
+}
+
+func readData(inputFile string) {
+	log.Printf("Reading data from %s\n", inputFile)
+
+	data, err := os.ReadFile(inputFile)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	lines := string(data)
+	for _, line := range strings.Split(lines, "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 3 {
+			log.Fatalf("invalid line format: %s", line)
+		}
+		parent := parts[0]
+		costStr := strings.Trim(parts[1], "[]")
+		cost, err := strconv.ParseFloat(costStr, 64)
+		if err != nil {
+			log.Fatalf("failed to parse cost: %v", err)
+		}
+		child := strings.Join(parts[2:], " ")
+
+		log.Printf("Adding data: %s [%.2f] %s\n", parent, cost, child)
+
+		if _, ok := results[parent]; !ok {
+			results[parent] = make(map[string]float64)
+		}
+		results[parent][child] = cost
 	}
 }
 
