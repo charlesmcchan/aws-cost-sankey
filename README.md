@@ -12,6 +12,9 @@ and then visualizing it in an easy-to-understand format.
 - **Sankey Chart Generation**: Generate a Sankey chart to visualize the cost data.
 - **Developer mode**: Show detailed usage type instead of service
 
+## Sample
+![Sample Output](assets/sample.png)
+
 ## Prerequisites
 - **Install asdf tool**
 
