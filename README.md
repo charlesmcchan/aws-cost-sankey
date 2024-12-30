@@ -10,7 +10,8 @@ and then visualizing it in an easy-to-understand format.
 - **Data Aggregation**: Aggregate cost data by account, `environment` tag, and service type.
 - **Cost Filtering**: Filter out links with aggregated costs lower than a specified threshold.
 - **Sankey Chart Generation**: Generate a Sankey chart to visualize the cost data.
-- **Developer mode**: Show detailed usage type instead of service
+- **Detailed mode**: Show detailed usage type instead of service
+- **(New) OpenAI Integration**: Use OpenAI to analyze cost data (requires OpenAI API key)
 
 ## Sample
 ![Sample Output](assets/sample.png)
@@ -51,7 +52,7 @@ and then visualizing it in an easy-to-understand format.
           (Optional) Path to the config file (default "configs/configs.yaml")
     -d    (Optional) Show UsageType instead of Service
     -f string
-          (Optional) Output format: "text", "chart" or "text+ai" (plaintext with OpenAI analysis) (default "chart")
+          (Optional) Output format: "text", "chart" or "text+ai" (text with OpenAI analysis) (default "chart")
     -i string
           (Optional) Input text file from which the cost data will be read.
           If not provided, data will be fetched from AWS Cost Explorer API
