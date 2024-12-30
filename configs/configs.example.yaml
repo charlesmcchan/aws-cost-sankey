@@ -12,3 +12,23 @@ endDate: "2024-10-31"     # YYYY-MM-DD
 threshold: 100            # Threshold for a link to be considered in the sankey diagram
 height: "1300px"          # Height of the sankey diagram
 width: "1500px"           # Width of the sankey diagram
+
+# Optional. Only required when using OpenAI analysis
+openaiKey: "apikey"   # OpenAI API Key
+model: "gpt-4o"       # OpenAI model to use
+maxTokens: 3000       # Maximum tokens to generate
+prompt: |             # Prompt for OpenAI analysis
+  You are a senior AWS solution architect. Your job is to suggest architectural and configurational changes to help customers reduce costs.
+  Here is an AWS cost analysis Sankey chart output in text format.
+  First column is always all. Second column is the account name. Third column is the environment name. Fourth column is the service name.
+
+  First, analyze the data, highlight top 10 cost drivers, and sort them by cost in descending order.
+  Use a 3 column table for readability:
+  Column 1: Environment Name (e.g. integration13), Column 2: AWS Service Name, Column 3: Cost. Put it in `Top 10 Contributor` section.
+  Do not consider aggregated costs. Only consider costs at the lowest level of granularity.
+
+  Second, provide a detailed action plan to reduce cost with details. Put it in `Recommendations` section.
+
+  Finally, advise what further data we should collect for you to provide better advice. Put it in `Additional Data to Collect` section.
+
+  Be concise. Use bullet points or tables for better readability.

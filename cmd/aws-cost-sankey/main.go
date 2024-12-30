@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -28,6 +31,10 @@ type Config struct {
 	Threshold float64   `yaml:"threshold"`
 	Height    string    `yaml:"height"`
 	Width     string    `yaml:"width"`
+	OpenAIKey string    `yaml:"openaiKey"`
+	Model     string    `yaml:"model"`
+	MaxTokens int       `yaml:"maxTokens"`
+	Prompt    string    `yaml:"prompt"`
 }
 
 type Account struct {
@@ -44,11 +51,11 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	// Parse command line arguments
-	configFile := flag.String("c", "configs/configs.yaml", "path to the config file")
-	outputFile := flag.String("o", "output", "name of output file")
-	format := flag.String("f", "chart", "output mode: text or chart")
-	devMode := flag.Bool("d", false, "enable developer mode")
-	inputFile := flag.String("i", "", "input file to read cost data from")
+	configFile := flag.String("c", "configs/configs.yaml", "(Optional) Path to the config file")
+	outputFile := flag.String("o", "output", "(Optional) Name of output file. Suffix will be determined by output format")
+	format := flag.String("f", "chart", "(Optional) Output format: \"text\", \"chart\" or \"text+ai\" (plaintext with OpenAI analysis)")
+	devMode := flag.Bool("d", false, "(Optional) Show UsageType instead of Service")
+	inputFile := flag.String("i", "", "(Optional) Input text file from which the cost data will be read.\nIf not provided, data will be fetched from AWS Cost Explorer API")
 	flag.Parse()
 
 	// Load config from file
@@ -74,13 +81,17 @@ func main() {
 
 	// Generate output to file or text
 	var filename string
-	if *format == "text" {
+	if *format == "text" || *format == "text+ai" {
 		filename = fmt.Sprintf("%s.txt", *outputFile)
 		generateText(filename)
-	}
-	if *format == "chart" {
+		if *format == "text+ai" {
+			analyze(filename)
+		}
+	} else if *format == "chart" {
 		filename = fmt.Sprintf("%s.html", *outputFile)
 		generateChart(filename)
+	} else {
+		log.Fatalf("unknown format: %s", *format)
 	}
 }
 
@@ -125,8 +136,6 @@ func readData(inputFile string) {
 			log.Fatalf("failed to parse cost: %v", err)
 		}
 		child := strings.Join(parts[2:], " ")
-
-		log.Printf("Adding data: %s [%.2f] %s\n", parent, cost, child)
 
 		if _, ok := results[parent]; !ok {
 			results[parent] = make(map[string]float64)
@@ -222,7 +231,7 @@ func prepareResults(accountName string, result *costexplorer.GetCostAndUsageOutp
 }
 
 func generateText(outputFile string) {
-	log.Printf("Generating text...")
+	log.Printf("Generating text output...")
 
 	f, err := os.Create(outputFile)
 	if err != nil {
@@ -241,7 +250,7 @@ func generateText(outputFile string) {
 }
 
 func generateChart(outputFile string) {
-	log.Printf("Generating charts...")
+	log.Printf("Generating chart output...")
 
 	sankeyNode := make([]opts.SankeyNode, 0)
 	sankeyLink := make([]opts.SankeyLink, 0)
@@ -304,4 +313,65 @@ func hasNode(name string, nodes []opts.SankeyNode) bool {
 		}
 	}
 	return false
+}
+
+func analyze(filename string) {
+	log.Printf("Analyzing with OpenAI...")
+
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatalf("failed to read file: %v", err)
+	}
+
+	requestBody, err := json.Marshal(map[string]interface{}{
+		"messages": []map[string]string{
+			{"role": "system", "content": globalConfig.Prompt},
+			{"role": "user", "content": string(data)},
+		},
+		"model":      globalConfig.Model,
+		"max_tokens": globalConfig.MaxTokens,
+	})
+
+	if err != nil {
+		log.Fatalf("failed to marshal request body: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(requestBody))
+	if err != nil {
+		log.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", globalConfig.OpenAIKey))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var responseBody map[string]interface{}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("failed to read response body: %v", err)
+	}
+	if err := json.Unmarshal(body, &responseBody); err != nil {
+		log.Fatalf("failed to decode response body: %v", err)
+	}
+
+	choices, ok := responseBody["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		log.Fatalf("no choices in response body")
+	}
+
+	message, ok := choices[0].(map[string]interface{})["message"].(map[string]interface{})
+	if !ok {
+		log.Fatalf("no message in first choice")
+	}
+	text, ok := message["content"].(string)
+	if !ok {
+		log.Fatalf("no content in message")
+	}
+
+	log.Printf("OpenAI analysis:\n%s", text)
 }

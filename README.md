@@ -36,6 +36,7 @@ and then visualizing it in an easy-to-understand format.
     - Fill in AWS credentials, including `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`
     - Modify the date range as needed
     - (Optional) Adjust the link display threshold, canvas height, and width
+    - (Optional) Provide OpenAI API key for AI analysis feature
 - **Run the Code**
   ```bash
   ./build/aws-cost-sankey
@@ -44,7 +45,18 @@ and then visualizing it in an easy-to-understand format.
 
   For more advanced parameters, see
   ```bash
-  ./build/aws-cost-sankey --help
+  $ ./build/aws-cost-sankey --help
+  Usage of ./build/aws-cost-sankey:
+    -c string
+          (Optional) Path to the config file (default "configs/configs.yaml")
+    -d    (Optional) Show UsageType instead of Service
+    -f string
+          (Optional) Output format: "text", "chart" or "text+ai" (plaintext with OpenAI analysis) (default "chart")
+    -i string
+          (Optional) Input text file from which the cost data will be read.
+          If not provided, data will be fetched from AWS Cost Explorer API
+    -o string
+          (Optional) Name of output file. Suffix will be determined by output format (default "output")
   ```
 
 ## Contributions
